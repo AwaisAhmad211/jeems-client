@@ -1,0 +1,98 @@
+:root {
+  /* PRIMARY BRAND COLORS */
+  --color-primary-dark: #00311F;           /* Dark forest green - main brand color */
+  --color-primary-accent: #7fb519;         /* Lime green - accent color */
+  
+  /* PRIMARY COLOR VARIANTS */
+  --color-primary-dark-hover: #004d31;     /* Darker forest green for hover states */
+  --color-primary-dark-darker: #0a422d;    /* Even darker forest green for deeper hovers */
+  --color-accent-hover: #6da115;           /* Darker lime green for hover states */
+  
+  /* BACKGROUND COLORS */
+  --color-bg-page: #FCFBF7;                /* Primary page background - off-white cream */
+  --color-bg-light-gray: #F2F2F2;          /* Light gray - navbar background */
+  --color-bg-cream-warm: #FFF7E6;          /* Warm cream/beige background */
+  --color-bg-cream-light: #f8faf5;         /* Very light cream - card backgrounds */
+  --color-bg-green-light: #f4f7f0;         /* Very light green-tinted white - hover states */
+  --color-bg-almost-white: #fbfbfb;        /* Almost white - subtle backgrounds */
+  --color-bg-white: #ffffff;               /* Pure white */
+  --color-bg-black: #000000;               /* Pure black */
+  
+  /* NEUTRAL TEXT COLORS */
+  --color-text-dark-gray: #414141;         /* Dark gray for main text */
+  --color-text-primary: #00311F;           /* Primary text color (same as primary dark) */
+  --color-text-white: #ffffff;             /* White text */
+  --color-text-black: #000000;             /* Black text */
+  
+  /* GRAY SCALE - Light to Dark */
+  --color-gray-50: #f9fafb;                /* Lightest gray */
+  --color-gray-100: #f3f4f6;               /* Very light gray */
+  --color-gray-200: #e5e7eb;               /* Light gray */
+  --color-gray-300: #d1d5db;               /* Medium-light gray */
+  --color-gray-400: #9ca3af;               /* Medium gray */
+  --color-gray-500: #6b7280;               /* Medium-dark gray */
+  --color-gray-600: #4b5563;               /* Dark gray */
+  
+  /* ACCENT & STATUS COLORS */
+  --color-accent-lime: #7fb519;            /* Lime green accent */
+  --color-status-green: #10b981;           /* Emerald green for status */
+  --color-status-success: #10b981;         /* Success status color */
+  
+  /* BORDER COLORS */
+  --color-border-light: #e5e7eb;           /* Light border (gray-200) */
+  --color-border-gray: #f3f4f6;            /* Gray border (gray-100) */
+  --color-border-subtle: rgba(0, 49, 31, 0.1);    /* Subtle primary border */
+  --color-border-accent-subtle: rgba(127, 181, 25, 0.3); /* Subtle accent border */
+  
+  /* OPACITY/TRANSPARENCY COLORS */
+  --color-white-opacity-10: rgba(255, 255, 255, 0.1);   /* White with 10% opacity */
+  --color-white-opacity-50: rgba(255, 255, 255, 0.5);   /* White with 50% opacity */
+  --color-shadow-primary: rgba(0, 49, 31, 0.05);        /* Soft shadow using primary color */
+  --color-shadow-primary-strong: rgba(0, 49, 31, 0.1);  /* Stronger shadow */
+  --color-shadow-dark: rgba(0, 0, 0, 0.1);              /* Subtle dark shadow */
+}
+
+/* ============================================================
+   SEMANTIC COLOR ALIASES (Optional - for convenience)
+   ============================================================ */
+
+:root {
+  /* UI ELEMENTS */
+  --color-button-primary: var(--color-primary-dark);
+  --color-button-primary-hover: var(--color-primary-dark-hover);
+  --color-button-primary-text: var(--color-text-white);
+  
+  --color-button-secondary: var(--color-primary-accent);
+  --color-button-secondary-hover: var(--color-accent-hover);
+  --color-button-secondary-text: var(--color-text-white);
+  
+  /* INPUT & FORM ELEMENTS */
+  --color-input-bg: var(--color-gray-50);
+  --color-input-border: var(--color-border-light);
+  --color-input-focus-ring: var(--color-primary-accent);
+  --color-input-text: var(--color-text-dark-gray);
+  
+  /* LINKS & NAVIGATION */
+  --color-link: var(--color-primary-accent);
+  --color-link-hover: var(--color-accent-hover);
+  --color-nav-text: var(--color-primary-dark);
+  --color-nav-text-active: var(--color-primary-accent);
+  --color-nav-bg: var(--color-bg-light-gray);
+  
+  /* CARD & CONTAINER BACKGROUNDS */
+  --color-card-bg: var(--color-bg-white);
+  --color-card-border: var(--color-border-light);
+  --color-card-hover-bg: var(--color-bg-green-light);
+  
+  /* TEXT HIERARCHY */
+  --color-text-primary: var(--color-primary-dark);
+  --color-text-secondary: var(--color-gray-600);
+  --color-text-tertiary: var(--color-gray-400);
+  --color-text-muted: var(--color-gray-500);
+  
+  /* FOOTER & DARK SECTIONS */
+  --color-footer-bg: var(--color-primary-dark);
+  --color-footer-text: var(--color-text-white);
+  --color-footer-text-accent: var(--color-primary-accent);
+  --color-footer-text-muted: var(--color-gray-400);
+}
