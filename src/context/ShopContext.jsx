@@ -1,5 +1,5 @@
 import { createContext, useEffect, useState } from "react";
-import axios from "axios";
+import axios from "react";
 import axiosInstance from "../utils/axiosInstance";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
@@ -14,6 +14,7 @@ const ShopContextProvider = ({ children }) => {
   const [search, setSearch] = useState("");
   const [showSearch, setShowSearch] = useState(false);
   const [cartItems, setCartItems] = useState({});
+  const [dbCartData, setDbCartData] = useState([]); // Added production-level populated array state
   const [products, setProducts] = useState([]);
   const [discount, setDiscount] = useState(0);
   const [appliedCoupon, setAppliedCoupon] = useState(null);
@@ -35,31 +36,37 @@ const ShopContextProvider = ({ children }) => {
 
   /* ---------------- CART (PROTECTED) ---------------- */
 
-  const addToCart = async (itemId, size, color) => {
+  const addToCart = async (itemId, size, color, productFromComponent = null) => {
     if (!color || !size) {
       toast.error("Please select Color and Size");
       return;
     }
 
-    const product = products.find((p) => p._id === itemId);
+    const product = productFromComponent || products.find((p) => p._id === itemId);
+    console.log("Adding to cart:", { itemId, size, color, product });
+    if (!product) {
+      toast.error("Product not found");
+      return;
+    }
     if (product.stock <= 0) {
       toast.error("Product is out of stock");
       return;
     }
 
+    // Update local nested cartItems for instant local UI feedback if needed elsewhere
     let cartData = structuredClone(cartItems || {});
-
     if (!cartData[itemId]) cartData[itemId] = {};
     if (!cartData[itemId][size]) cartData[itemId][size] = {};
-
     cartData[itemId][size][color] = (cartData[itemId][size][color] || 0) + 1;
-
     setCartItems(cartData);
+
     toast.success("Added to cart");
     navigate("/cart");
 
     try {
       await axiosInstance.post("/api/cart/add", { itemId, size, color });
+      // Refresh the populated array structure from server immediately after adding
+      getUserCart();
     } catch  {
       toast.error("Unable to add to cart");
     }
@@ -71,21 +78,22 @@ const ShopContextProvider = ({ children }) => {
   };
 
   const updateQuantity = async (itemId, size, quantity, color) => {
+    // 1. Pessimistic / Optimistic local UI handling for nested object tracker
     let cartData = structuredClone(cartItems);
-
-    // Update the 3rd level
-    cartData[itemId][size][color] = quantity;
-
-    setCartItems(cartData);
+    if (cartData[itemId]?.[size]) {
+      cartData[itemId][size][color] = quantity;
+      setCartItems(cartData);
+    }
 
     try {
-      // Ensure your backend endpoint is updated to receive "color" as well
       await axiosInstance.post("/api/cart/update", {
         itemId,
         size,
         quantity,
         color,
       });
+      // 2. Fetch freshly updated, populated item records from database to keep totals accurate
+      await getUserCart();
     } catch  {
       toast.error("Failed to update cart");
     }
@@ -94,15 +102,33 @@ const ShopContextProvider = ({ children }) => {
   const getUserCart = async () => {
     try {
       const { data } = await axiosInstance.get("/api/cart/get");
-      setCartItems(data.cartData || {});
+      if (data.success && data.cartItems) {
+        // Save production rich array layout (consumed directly by Cart.jsx)
+        setDbCartData(data.cartItems);
+
+        // Reconstruct old nested object to remain backward compatible for other layout components
+        let structuralCart = {};
+        data.cartItems.forEach((item) => {
+          if (!structuralCart[item._id]) structuralCart[item._id] = {};
+          if (!structuralCart[item._id][item.size]) structuralCart[item._id][item.size] = {};
+          structuralCart[item._id][item.size][item.color] = item.quantity;
+        });
+        setCartItems(structuralCart);
+      }
     } catch (error) {
-      console.log(error);
+      console.log("Error inside getUserCart:", error);
     }
   };
 
   /* ---------------- HELPERS ---------------- */
 
   const getCartCount = () => {
+    // Production preference: calculate from our populated backend array if ready
+    if (dbCartData && dbCartData.length > 0) {
+      return dbCartData.reduce((total, item) => total + item.quantity, 0);
+    }
+    
+    // Fallback approach using old nested local state object tracker
     let total = 0;
     for (const items in cartItems) {
       for (const size in cartItems[items]) {
@@ -115,6 +141,14 @@ const ShopContextProvider = ({ children }) => {
   };
 
   const getCartAmount = () => {
+    // Production preference: read product price directly from database payload record
+    if (dbCartData && dbCartData.length > 0) {
+      return dbCartData.reduce((total, item) => {
+        return total + (item.product?.price || 0) * item.quantity;
+      }, 0);
+    }
+
+    // Fallback calculation logic matching pagination fallback list array elements
     let total = 0;
     for (const itemId in cartItems) {
       const product = products.find((p) => p._id === itemId);
@@ -152,10 +186,12 @@ const ShopContextProvider = ({ children }) => {
     setShowSearch,
     cartItems,
     setCartItems,
+    dbCartData, // Exposed safely to Cart.jsx layout elements
     addToCart,
     updateQuantity,
     getCartCount,
     getCartAmount,
+    getUserCart, // Exposed so Cart.jsx can re-trigger hydration loops natively
     navigate,
     backendUrl,
     token,

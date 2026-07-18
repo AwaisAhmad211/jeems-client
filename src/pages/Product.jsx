@@ -25,6 +25,7 @@ const Product = () => {
         if (response.data.success) {
           setProductData(response.data.product);
           setImage(response.data.product.images[0]); // Set the first image as default
+          console.log("Fetched product data:", response.data.product); // Log the fetched product data
         }
       } catch (error) {
         console.error("Error fetching product details:", error);
@@ -179,7 +180,7 @@ const Product = () => {
           <div className="space-y-2">
             <button
               disabled={productData.stock <= 0}
-              onClick={() => addToCart(productData._id, size, color)}
+              onClick={() => addToCart(productData._id, size, color,productData)}
               className={`group relative w-full lg:max-w-md py-5 overflow-hidden border transition-all duration-500 ${
                 productData.stock > 0
                   ? "border-[var(--color-primary-dark)] cursor-pointer"
