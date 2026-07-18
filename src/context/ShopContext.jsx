@@ -1,5 +1,5 @@
 import { createContext, useEffect, useState } from "react";
-import axios from "react";
+import axios from "axios"; // FIXED: Changed from "react" to "axios" to fix crashes
 import axiosInstance from "../utils/axiosInstance";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
@@ -14,7 +14,7 @@ const ShopContextProvider = ({ children }) => {
   const [search, setSearch] = useState("");
   const [showSearch, setShowSearch] = useState(false);
   const [cartItems, setCartItems] = useState({});
-  const [dbCartData, setDbCartData] = useState([]); // Added production-level populated array state
+  const [dbCartData, setDbCartData] = useState([]); 
   const [products, setProducts] = useState([]);
   const [discount, setDiscount] = useState(0);
   const [appliedCoupon, setAppliedCoupon] = useState(null);
@@ -29,8 +29,9 @@ const ShopContextProvider = ({ children }) => {
     try {
       const { data } = await axios.get(`${backendUrl}/api/product/list`);
       setProducts(data.products || []);
-    } catch {
-      toast.error("Failed to load products");
+    } catch (error) {
+      console.log("Error fetching products:", error);
+      // Optional: don't show toast if it's just Render spin-down delay
     }
   };
 
@@ -53,7 +54,6 @@ const ShopContextProvider = ({ children }) => {
       return;
     }
 
-    // Update local nested cartItems for instant local UI feedback if needed elsewhere
     let cartData = structuredClone(cartItems || {});
     if (!cartData[itemId]) cartData[itemId] = {};
     if (!cartData[itemId][size]) cartData[itemId][size] = {};
@@ -65,9 +65,8 @@ const ShopContextProvider = ({ children }) => {
 
     try {
       await axiosInstance.post("/api/cart/add", { itemId, size, color });
-      // Refresh the populated array structure from server immediately after adding
       getUserCart();
-    } catch  {
+    } catch {
       toast.error("Unable to add to cart");
     }
   };
@@ -78,12 +77,12 @@ const ShopContextProvider = ({ children }) => {
   };
 
   const updateQuantity = async (itemId, size, quantity, color) => {
-    // 1. Pessimistic / Optimistic local UI handling for nested object tracker
     let cartData = structuredClone(cartItems);
-    if (cartData[itemId]?.[size]) {
-      cartData[itemId][size][color] = quantity;
-      setCartItems(cartData);
-    }
+    if (!cartData[itemId]) cartData[itemId] = {};
+    if (!cartData[itemId][size]) cartData[itemId][size] = {};
+    
+    cartData[itemId][size][color] = quantity;
+    setCartItems(cartData);
 
     try {
       await axiosInstance.post("/api/cart/update", {
@@ -92,21 +91,19 @@ const ShopContextProvider = ({ children }) => {
         quantity,
         color,
       });
-      // 2. Fetch freshly updated, populated item records from database to keep totals accurate
       await getUserCart();
-    } catch  {
+    } catch {
       toast.error("Failed to update cart");
     }
   };
 
   const getUserCart = async () => {
+    if (!token) return; // Production Guard: Failsafe if user is not authenticated yet
     try {
       const { data } = await axiosInstance.get("/api/cart/get");
       if (data.success && data.cartItems) {
-        // Save production rich array layout (consumed directly by Cart.jsx)
         setDbCartData(data.cartItems);
 
-        // Reconstruct old nested object to remain backward compatible for other layout components
         let structuralCart = {};
         data.cartItems.forEach((item) => {
           if (!structuralCart[item._id]) structuralCart[item._id] = {};
@@ -116,19 +113,18 @@ const ShopContextProvider = ({ children }) => {
         setCartItems(structuralCart);
       }
     } catch (error) {
-      console.log("Error inside getUserCart:", error);
+      // Handles Render server spin-down or initial handshake quietly without an intrusive toast
+      console.log("Silent cart fetch log during cold boot:", error.message);
     }
   };
 
   /* ---------------- HELPERS ---------------- */
 
   const getCartCount = () => {
-    // Production preference: calculate from our populated backend array if ready
     if (dbCartData && dbCartData.length > 0) {
       return dbCartData.reduce((total, item) => total + item.quantity, 0);
     }
     
-    // Fallback approach using old nested local state object tracker
     let total = 0;
     for (const items in cartItems) {
       for (const size in cartItems[items]) {
@@ -141,14 +137,12 @@ const ShopContextProvider = ({ children }) => {
   };
 
   const getCartAmount = () => {
-    // Production preference: read product price directly from database payload record
     if (dbCartData && dbCartData.length > 0) {
       return dbCartData.reduce((total, item) => {
         return total + (item.product?.price || 0) * item.quantity;
       }, 0);
     }
 
-    // Fallback calculation logic matching pagination fallback list array elements
     let total = 0;
     for (const itemId in cartItems) {
       const product = products.find((p) => p._id === itemId);
@@ -186,12 +180,12 @@ const ShopContextProvider = ({ children }) => {
     setShowSearch,
     cartItems,
     setCartItems,
-    dbCartData, // Exposed safely to Cart.jsx layout elements
+    dbCartData, 
     addToCart,
     updateQuantity,
     getCartCount,
     getCartAmount,
-    getUserCart, // Exposed so Cart.jsx can re-trigger hydration loops natively
+    getUserCart, 
     navigate,
     backendUrl,
     token,
