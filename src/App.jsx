@@ -21,13 +21,15 @@ import SearchBar from "./components/SearchBar";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import ScrollToTop from "./components/ScrollToTop";
+import AnnouncementBar from "./components/AnnouncementBar";
 
 const App = () => {
   return (
     <div>
+      <AnnouncementBar />
       <NavBar />
       <ScrollToTop />
-      <div className="mt-32 px-4 sm:px-[5vw] md:px-[7vw] lg:px-[9vw]">
+      <div className="mt-4 px-4 sm:px-[5vw] md:px-[7vw] lg:px-[9vw]">
         <ToastContainer />
         <SearchBar />
         <Routes>

@@ -4,45 +4,6 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { ShopContext } from "../context/ShopContext";
 
-// const slides = [
-//   {
-//     id: 1,
-//     title: "Couture Collection",
-//     subtitle: "Handcrafted Elegance",
-//     description:
-//       "Experience the pinnacle of luxury with our custom-tailored wedding and formal wear.",
-//     image:
-//       "https://images.unsplash.com/photo-1594465919760-441fe5908ab0?q=80&w=2000&auto=format&fit=crop",
-//     cta: "Explore Couture",
-//     category: "Couture & Wedding",
-//     color: "text-white",
-//   },
-//   {
-//     id: 2,
-//     title: "Timeless Jewelry",
-//     subtitle: "Pure Brilliance",
-//     description:
-//       "Discover pieces designed to be passed down through generations.",
-//     image:
-//       "https://images.unsplash.com/photo-1515562141207-7a18b5ce7142?q=80&w=2000&auto=format&fit=crop",
-//     cta: "Shop Jewelry",
-//     category: "Jewelry",
-
-//     color: "text-white",
-//   },
-//   {
-//     id: 3,
-//     title: "Luxury Pret",
-//     subtitle: "Modern Sophistication",
-//     description:
-//       "High-end ready-to-wear designs inspired by global runway trends.",
-//     image:
-//       "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?q=80&w=2000&auto=format&fit=crop",
-//     cta: "View Collection",
-//     category: "Luxury Pret",
-//     color: "text-white",
-//   },
-// ];
 
 const HeroCarousel = () => {
   const navigate = useNavigate();
@@ -91,14 +52,14 @@ const HeroCarousel = () => {
 
   if (loading)
     return (
-      <div className="h-[62vh] flex items-center justify-center bg-gray-100 rounded-2xl">
+      <div className="h-[100vh] flex items-center justify-center bg-gray-100 rounded-2xl">
         <Loader2 className="animate-spin" />
       </div>
     );
   if (slides.length === 0) return null;
 
   return (
-    <div className="relative h-[62vh] top-4 w-full overflow-hidden bg-black rounded-2xl">
+    <div className="relative h-[75vh] top-4 w-full overflow-hidden bg-black rounded-2xl">
       {slides.map((slide, index) => (
         <div
           key={slide._id}

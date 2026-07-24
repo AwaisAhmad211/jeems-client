@@ -71,7 +71,7 @@ const NavBar = () => {
 
   return (
     <nav
-      className={`fixed top-0 w-full z-[100] transition-all duration-500 ${
+      className={`sticky top-0 w-full z-[100] transition-all duration-500 ${
         scrolled
           ? "bg-[var(--color-bg-light-gray)] py-3 shadow-sm"
           : "bg-[var(--color-bg-light-gray)] py-5"

@@ -5,6 +5,7 @@ import {
   MapPin,
   Mail,
   Phone,
+  Facebook,
   Music2, // Using Music2 as a placeholder for TikTok if your lucide version is older
 } from "lucide-react";
 
@@ -35,6 +36,17 @@ const Footer = () => {
                 rel="noopener noreferrer"
               >
                 <Instagram
+                  size={18}
+                  className="text-gray-400 hover:text-[var(--color-footer-text-accent)] cursor-pointer transition-colors"
+                />
+              </a>
+              {/* Facebook */}
+              <a
+                href="https://www.facebook.com/"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <Facebook
                   size={18}
                   className="text-gray-400 hover:text-[var(--color-footer-text-accent)] cursor-pointer transition-colors"
                 />
