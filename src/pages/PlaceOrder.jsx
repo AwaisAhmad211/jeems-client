@@ -1,7 +1,6 @@
 import { useContext, useState } from "react";
 import Title from "../components/Title";
 import CartTotal from "../components/CartTotal";
-// import { assets } from "../assets/assets";
 import { ShopContext } from "../context/ShopContext";
 import { toast } from "react-toastify";
 import axiosInstance from "../utils/axiosInstance";
@@ -14,8 +13,12 @@ const PlaceOrder = () => {
     backendUrl,
     cartItems,
     setCartItems,
+    dbCartData,
+    setDbCartData,
     getCartAmount,
-    delivery_fee,
+    getTotalAmount,
+    getDeliveryFee,
+    selectedShipping,
     products,
     discount,
     setDiscount,
@@ -46,23 +49,53 @@ const PlaceOrder = () => {
   };
 
   /**
-   * Helper function to transform cart object into a flat array for the backend
+   * Helper function to transform cart (DB or Local) into a flat array for the backend
+   */
+  /**
+   * Helper function to transform cart (DB or Local) into a flat array for the backend
    */
   const prepareOrderItems = () => {
     let orderItems = [];
+
+    // 1. Check if user has Database Cart Data (Logged In)
+    if (dbCartData && dbCartData.length > 0) {
+      orderItems = dbCartData.map((item) => {
+        // Extract real ID safely whether populated or unpopulated
+        const realId = item.product?._id || item.productId || item._id;
+        const realName = item.product?.name || item.name || "Item";
+
+        return {
+          _id: String(realId),
+          name: realName,
+          price: item.product?.price || item.price || 0,
+          image: item.product?.image || item.image || [],
+          size: item.size,
+          color: item.color,
+          quantity: item.quantity,
+        };
+      });
+      return orderItems;
+    }
+
+    // 2. Check Local Cart Object (Guest User)
     for (const itemId in cartItems) {
       for (const size in cartItems[itemId]) {
         for (const color in cartItems[itemId][size]) {
           const quantity = cartItems[itemId][size][color];
           if (quantity > 0) {
-            const itemInfo = structuredClone(
-              products.find((p) => p._id === itemId),
+            const productMatch = products.find(
+              (p) => String(p._id) === String(itemId)
             );
-            if (itemInfo) {
-              itemInfo.size = size;
-              itemInfo.color = color;
-              itemInfo.quantity = quantity;
-              orderItems.push(itemInfo);
+            if (productMatch) {
+              orderItems.push({
+                _id: String(productMatch._id),
+                name: productMatch.name,
+                price: productMatch.price,
+                image: productMatch.image,
+                size: size,
+                color: color,
+                quantity: quantity,
+              });
             }
           }
         }
@@ -80,11 +113,10 @@ const PlaceOrder = () => {
         {
           code: couponInput.toUpperCase(),
           total: getCartAmount(),
-        },
+        }
       );
 
       if (response.data.success) {
-        // Ensure response.data.discountAmount is a NUMBER, not a string
         const discountVal = Number(response.data.discount);
         setDiscount(discountVal);
         setAppliedCoupon(couponInput.toUpperCase());
@@ -92,7 +124,7 @@ const PlaceOrder = () => {
       }
     } catch (error) {
       toast.error(error.response?.data?.message || "Invalid coupon code");
-      resetDiscount(); // Reset state if the API fails
+      resetDiscount();
     } finally {
       setIsCouponLoading(false);
     }
@@ -110,17 +142,21 @@ const PlaceOrder = () => {
 
     const orderItems = prepareOrderItems();
 
-    for (const item of orderItems) {
-      const currentProduct = products.find((p) => p._id === item._id);
-      if (currentProduct && item.quantity > currentProduct.stock) {
-        return toast.error(
-          `Sorry, only ${currentProduct.stock} units of ${item.name} are available.`,
-        );
-      }
+    // Empty Cart Validation Check
+    if (!orderItems || orderItems.length === 0) {
+      return toast.error("Your cart is empty");
     }
 
-    if (orderItems.length === 0) {
-      return toast.error("Your cart is empty");
+    // Stock Level Validation
+    for (const item of orderItems) {
+      const currentProduct = products.find(
+        (p) => String(p._id) === String(item._id)
+      );
+      if (currentProduct && item.quantity > currentProduct.stock) {
+        return toast.error(
+          `Sorry, only ${currentProduct.stock} units of ${item.name} are available.`
+        );
+      }
     }
 
     setLoading(true);
@@ -129,24 +165,23 @@ const PlaceOrder = () => {
       const orderData = {
         address: formData,
         items: orderItems,
-        amount: getCartAmount() + delivery_fee - discount,
-        couponApplied: !!appliedCoupon, // true if applied, false otherwise
+        amount: getTotalAmount(), // Uses dynamic total calculation
+        deliveryFee: getDeliveryFee(),
+        shippingMethodId: selectedShipping?._id || null,
+        couponApplied: !!appliedCoupon,
         couponCode: appliedCoupon || "",
         discount: discount || 0,
       };
 
-      /**
-       * SWITCH CASE SCENARIOS
-       * Each payment method has its own logic flow.
-       */
       switch (method) {
         case "cod": {
           const response = await axiosInstance.post(
             `${backendUrl}/api/order/place`,
-            orderData,
+            orderData
           );
           if (response.data.success) {
             setCartItems({});
+            if (setDbCartData) setDbCartData([]);
             resetDiscount();
             navigate("/orders");
             toast.success("Order placed successfully");
@@ -155,13 +190,11 @@ const PlaceOrder = () => {
           }
           break;
         }
-        case "stripe":{
-          // Scenario: Logic for Stripe Checkout redirect will go here
+        case "stripe": {
           toast.info("Stripe integration coming soon");
           break;
         }
-        case "razorpay":{
-          // Scenario: Logic for Razorpay Modal/Order creation will go here
+        case "razorpay": {
           toast.info("Razorpay integration coming soon");
           break;
         }
@@ -333,43 +366,15 @@ const PlaceOrder = () => {
         <div className="mt-12">
           <Title text1={"PAYMENT"} text2={"METHOD"} />
           <div className="flex gap-3 flex-col lg:flex-row">
-            {/* Stripe Payment Toggle */}
-            {/* <div
-              onClick={() => setMethod("stripe")}
-              className="flex items-center gap-3 border p-2 px-3 cursor-pointer"
-            >
-              <p
-                className={`min-w-3.5 h-3.5 border rounded-full ${method === "stripe" ? "bg-green-400" : ""}`}
-              ></p>
-              <img
-                className={`h-5 mx-4`}
-                src={assets.stripe_logo}
-                alt="Stripe"
-              />
-            </div> */}
-
-            {/* Razorpay Payment Toggle */}
-            {/* <div
-              onClick={() => setMethod("razorpay")}
-              className="flex items-center gap-3 border p-2 px-3 cursor-pointer"
-            >
-              <p
-                className={`min-w-3.5 h-3.5 border rounded-full ${method === "razorpay" ? "bg-green-400" : ""}`}
-              ></p>
-              <img
-                className={`h-5 mx-4`}
-                src={assets.razorpay_logo}
-                alt="Razorpay"
-              />
-            </div> */}
-
             {/* COD Payment Toggle */}
             <div
               onClick={() => setMethod("cod")}
               className="flex items-center gap-3 border p-2 px-3 cursor-pointer"
             >
               <p
-                className={`min-w-3.5 h-3.5 border rounded-full ${method === "cod" ? "bg-green-400" : ""}`}
+                className={`min-w-3.5 h-3.5 border rounded-full ${
+                  method === "cod" ? "bg-green-400" : ""
+                }`}
               ></p>
               <p className="text-gray-500 text-sm font-medium mx-4 uppercase">
                 Cash on Delivery

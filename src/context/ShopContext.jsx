@@ -8,7 +8,6 @@ export const ShopContext = createContext();
 
 const ShopContextProvider = ({ children }) => {
   const currency = "PKR ";
-  const delivery_fee = 10;
   const backendUrl = import.meta.env.VITE_BACKEND_URL;
 
   const [search, setSearch] = useState("");
@@ -18,6 +17,10 @@ const ShopContextProvider = ({ children }) => {
   const [products, setProducts] = useState([]);
   const [discount, setDiscount] = useState(0);
   const [appliedCoupon, setAppliedCoupon] = useState(null);
+
+  // --- Dynamic Shipping States ---
+  const [shippingMethods, setShippingMethods] = useState([]);
+  const [selectedShipping, setSelectedShipping] = useState(null);
 
   const [token, setToken] = useState(localStorage.getItem("accessToken") || "");
 
@@ -31,45 +34,72 @@ const ShopContextProvider = ({ children }) => {
       setProducts(data.products || []);
     } catch (error) {
       console.log("Error fetching products:", error);
-      // Optional: don't show toast if it's just Render spin-down delay
+    }
+  };
+
+  /* ---------------- SHIPPING METHODS (PUBLIC) ---------------- */
+
+  const getShippingMethods = async () => {
+    try {
+      const { data } = await axios.get(`${backendUrl}/api/shipping`);
+      if (data.success && data.data.length > 0) {
+        setShippingMethods(data.data);
+        // Default select the first method or one marked as isDefault
+        const defaultMethod = data.data.find((item) => item.isDefault) || data.data[0];
+        setSelectedShipping(defaultMethod);
+      }
+    } catch (error) {
+      console.log("Error fetching shipping methods:", error);
     }
   };
 
   /* ---------------- CART (PROTECTED) ---------------- */
 
-  const addToCart = async (itemId, size, color, productFromComponent = null) => {
-    if (!color || !size) {
-      toast.error("Please select Color and Size");
-      return;
-    }
+ const addToCart = async (itemId, size, color, productFromComponent = null) => {
+  if (!color || !size) {
+    toast.error("Please select Color and Size");
+    return;
+  }
 
-    const product = productFromComponent || products.find((p) => p._id === itemId);
-    console.log("Adding to cart:", { itemId, size, color, product });
-    if (!product) {
-      toast.error("Product not found");
-      return;
-    }
-    if (product.stock <= 0) {
-      toast.error("Product is out of stock");
-      return;
-    }
+  // Safe string matching
+  const product =
+    productFromComponent ||
+    products.find((p) => String(p._id) === String(itemId));
 
-    let cartData = structuredClone(cartItems || {});
-    if (!cartData[itemId]) cartData[itemId] = {};
-    if (!cartData[itemId][size]) cartData[itemId][size] = {};
-    cartData[itemId][size][color] = (cartData[itemId][size][color] || 0) + 1;
-    setCartItems(cartData);
+  if (!product) {
+    toast.error("Product not found");
+    return;
+  }
 
-    toast.success("Added to cart");
-    navigate("/cart");
+  if (product.stock <= 0) {
+    toast.error("Product is out of stock");
+    return;
+  }
 
+  // 1. Local State Update
+  let cartData = structuredClone(cartItems || {});
+  if (!cartData[itemId]) cartData[itemId] = {};
+  if (!cartData[itemId][size]) cartData[itemId][size] = {};
+
+  cartData[itemId][size][color] = (cartData[itemId][size][color] || 0) + 1;
+  setCartItems(cartData);
+
+  toast.success("Added to cart");
+
+  // 2. Backend Call (Agar user logged in hai)
+  if (token) {
     try {
       await axiosInstance.post("/api/cart/add", { itemId, size, color });
-      getUserCart();
-    } catch {
-      toast.error("Unable to add to cart");
+      await getUserCart(); // Wait for database sync before leaving page
+    } catch (error) {
+      console.log("Cart add backend error:", error);
+      toast.error("Unable to sync cart with database");
     }
-  };
+  }
+
+  // 3. Navigate after state update
+  navigate("/cart");
+};
 
   const resetDiscount = () => {
     setDiscount(0);
@@ -98,7 +128,7 @@ const ShopContextProvider = ({ children }) => {
   };
 
   const getUserCart = async () => {
-    if (!token) return; // Production Guard: Failsafe if user is not authenticated yet
+    if (!token) return;
     try {
       const { data } = await axiosInstance.get("/api/cart/get");
       if (data.success && data.cartItems) {
@@ -113,8 +143,7 @@ const ShopContextProvider = ({ children }) => {
         setCartItems(structuralCart);
       }
     } catch (error) {
-      // Handles Render server spin-down or initial handshake quietly without an intrusive toast
-      console.log("Silent cart fetch log during cold boot:", error.message);
+      console.log("Silent cart fetch log:", error.message);
     }
   };
 
@@ -136,30 +165,63 @@ const ShopContextProvider = ({ children }) => {
     return total;
   };
 
-  const getCartAmount = () => {
-    if (dbCartData && dbCartData.length > 0) {
-      return dbCartData.reduce((total, item) => {
-        return total + (item.product?.price || 0) * item.quantity;
-      }, 0);
-    }
+ const getCartAmount = () => {
+  // Agar Logged in User ka Database Cart Data maujood hai
+  if (dbCartData && dbCartData.length > 0) {
+    return dbCartData.reduce((total, item) => {
+      return total + (item.product?.price || 0) * item.quantity;
+    }, 0);
+  }
 
-    let total = 0;
-    for (const itemId in cartItems) {
-      const product = products.find((p) => p._id === itemId);
-      if (!product) continue;
-      for (const size in cartItems[itemId]) {
-        for (const color in cartItems[itemId][size]) {
-          total += product.price * cartItems[itemId][size][color];
+  // Guest / Local state Cart Items logic
+  let total = 0;
+  for (const itemId in cartItems) {
+    // String cast kar ke match karna bohot zaroori hai (ObjectId vs String bug fix)
+    const product = products.find((p) => String(p._id) === String(itemId));
+    if (!product) continue;
+
+    for (const size in cartItems[itemId]) {
+      for (const color in cartItems[itemId][size]) {
+        const qty = cartItems[itemId][size][color];
+        if (qty > 0) {
+          total += product.price * qty;
         }
       }
     }
-    return total;
+  }
+  return total;
+};
+
+  // Dynamically calculate delivery fee based on selected method & free shipping threshold
+  const getDeliveryFee = () => {
+    if (!selectedShipping) return 0;
+
+    const subtotal = getCartAmount();
+    
+    // Check if free shipping applies
+    if (
+      selectedShipping.freeShippingThreshold !== null &&
+      subtotal >= selectedShipping.freeShippingThreshold
+    ) {
+      return 0;
+    }
+
+    return selectedShipping.cost || 0;
+  };
+
+  // Total amount = Subtotal - Discount + Delivery Fee
+  const getTotalAmount = () => {
+    const subtotal = getCartAmount();
+    if (subtotal === 0) return 0;
+    const currentDeliveryFee = getDeliveryFee();
+    return Math.max(0, subtotal - discount + currentDeliveryFee);
   };
 
   /* ---------------- EFFECTS ---------------- */
 
   useEffect(() => {
     getProductsData();
+    getShippingMethods(); // Fetch shipping options when app loads
   }, []);
 
   useEffect(() => {
@@ -173,7 +235,11 @@ const ShopContextProvider = ({ children }) => {
   const value = {
     products,
     currency,
-    delivery_fee,
+    delivery_fee: getDeliveryFee(), // Backwards compatibility for old components
+    getDeliveryFee,
+    shippingMethods,
+    selectedShipping,
+    setSelectedShipping,
     search,
     setSearch,
     showSearch,
@@ -185,6 +251,7 @@ const ShopContextProvider = ({ children }) => {
     updateQuantity,
     getCartCount,
     getCartAmount,
+    getTotalAmount,
     getUserCart, 
     navigate,
     backendUrl,
